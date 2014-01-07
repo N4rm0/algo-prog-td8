@@ -1,12 +1,12 @@
 import java.io.IOException;
 import java.text.DateFormat;
 import java.text.DecimalFormat;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -61,12 +61,12 @@ public class Test {
 		// ici construire le graphe des villes en mettant les bonnes valeurs
 		// dans les tables voisins et nom
 		Timer.start();
-		List<Ville> list = new LinkedList<Ville>();
-		list.addAll(cv);
+		List<Ville> list = new ArrayList<Ville>(cv);
 		Collections.sort(list);
 		nom = new HashMap<>();
 		voisins = new HashMap<>();
-		for (Ville v : list) {
+		for (int i =0; i< list.size(); i++) {
+			Ville v = list.get(i);
 			if (nom.containsKey(v.getNom())) {
 				nom.get(v.getNom()).add(v);
 			} else {
@@ -278,13 +278,15 @@ public class Test {
 
 	public static void initFrance(double minDist) {
 		Carte ens = new Carte(chemin + "fr.txt");
+		minDistStatic = minDist;
 		construitGraphe(ens.villes(), minDist);
 
 	}
 
 	public static void test0() {
-		initMayotte(1500);
+		initFrance(2000);
 		printVilleWithSameName();
+		
 	}
 
 	static void logDistances() {
@@ -352,6 +354,42 @@ public class Test {
 
 	}
 
+	public static void stupidTest(Collection<Ville> set) {
+		List<Ville> list= new ArrayList<>(set); 
+		Collections.sort(list);
+		Timer.start();
+		long count = 0;
+		int size = list.size();
+		for (int i = 0; i< list.size(); i++) {
+			Ville v = list.get(i);
+
+			double R = 6371000;
+			double latDist = minDistStatic * 180.0 / Math.PI / R;
+			// upward loop
+			for (int j = 1; j + i < size; j++) {
+				Ville otherVille = list.get(i + j);
+				if (distanceWithDiff(v, otherVille, latDist)) {
+					count++;
+				} else {
+					break;
+				}
+			}
+			// downward loop
+			for (int k = 1; i - k > -1; k++) {
+				Ville otherVille = list.get(i - k);
+				if (distanceWithDiff(v, otherVille, latDist)) {
+					count++;
+				} else {
+					// stop here
+					break;
+				}
+			}
+		}
+		Timer.end();
+		Timer.log("test stupid double loop time count " + count, LOGGER);
+		System.exit(0);
+	}
+
 	public static void main(String[] args) throws SecurityException,
 			IOException {
 		init();
@@ -362,8 +400,8 @@ public class Test {
 		// test1(4000);
 		//
 		// tests sur la carte de France
-		test2(2000);
-		// test2(5000);
+		//test2(2000);
+		 test2(5000);
 		// test2(7000);
 		// test2(10000);
 
