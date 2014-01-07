@@ -1,4 +1,5 @@
 bin
 config-exemple.ini
 logs.txt
+logs.txt.lck
 
