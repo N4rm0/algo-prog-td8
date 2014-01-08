@@ -28,7 +28,7 @@ public class Test {
 		LOGGER.setUseParentHandlers(false);
 		Handler handler = new FileHandler("logs.txt");
 		handler.setFormatter(new LogFormatter());
-		handler.setLevel(Level.ALL);
+		handler.setLevel(Level.INFO);
 		LOGGER.addHandler(handler);
 		LOGGER.setLevel(Level.INFO);
 	}
@@ -63,9 +63,10 @@ public class Test {
 		Timer.start();
 		List<Ville> list = new ArrayList<Ville>(cv);
 		Collections.sort(list);
+		int size = list.size();
 		nom = new HashMap<>();
 		voisins = new HashMap<>();
-		for (int i =0; i< list.size(); i++) {
+		for (int i = 0; i < list.size(); i++) {
 			Ville v = list.get(i);
 			if (nom.containsKey(v.getNom())) {
 				nom.get(v.getNom()).add(v);
@@ -75,7 +76,7 @@ public class Test {
 				nom.put(v.getNom(), setVille);
 			}
 			// put here voisin loop
-			fillVoisinWithDoubleLoop(v, list, latDist);
+			fillVoisinWithDoubleLoop(i, size, list, latDist);
 		}
 
 		Timer.end();
@@ -83,11 +84,10 @@ public class Test {
 
 	}
 
-	static void fillVoisinWithDoubleLoop(Ville v, List<Ville> list,
+	static void fillVoisinWithDoubleLoop(int index, int size, List<Ville> list,
 			double latDist) {
-		int index = list.indexOf(v);
-		int size = list.size();
 		// upward loop
+		Ville v = list.get(index);
 		for (int i = 1; i + index < size; i++) {
 			Ville otherVille = list.get(i + index);
 			HashSet<Ville> setVoisin = voisins.containsKey(v) ? voisins.get(v)
@@ -96,16 +96,14 @@ public class Test {
 			if (distanceWithDiff(v, otherVille, latDist)) {
 				if (v.distance(otherVille) <= minDistStatic) {
 					setVoisin.add(otherVille);
-					if (LOGGER.getLevel() == Level.FINER)
-						LOGGER.finer("add neighbor " + otherVille.getNom()
-								+ " to " + v.getNom() + " distance "
-								+ v.distance(otherVille));
+					LOGGER.fine("add neighbor " + otherVille.getNom() + " to "
+							+ v.getNom() + " distance "
+							+ v.distance(otherVille));
 				}
 			} else {
 				// stop here
-				if (LOGGER.getLevel() == Level.FINE)
-					LOGGER.fine("added " + setVoisin.size() + " neighbor of "
-							+ v.getNom() + " with bigger latitude");
+				LOGGER.fine("added " + setVoisin.size() + " neighbor of "
+						+ v.getNom() + " with bigger latitude");
 				break;
 			}
 		}
@@ -118,10 +116,9 @@ public class Test {
 			if (distanceWithDiff(v, otherVille, latDist)) {
 				if (v.distance(otherVille) <= minDistStatic) {
 					setVoisin.add(otherVille);
-					if (LOGGER.getLevel() == Level.FINER)
-						LOGGER.finer("add neighbor " + otherVille.getNom()
-								+ " to " + v.getNom() + " distance "
-								+ v.distance(otherVille));
+					LOGGER.fine("add neighbor " + otherVille.getNom() + " to "
+							+ v.getNom() + " distance "
+							+ v.distance(otherVille));
 				}
 			} else {
 				// stop here
@@ -139,22 +136,18 @@ public class Test {
 			HashSet<Ville> setVoisin = voisins.containsKey(v) ? voisins.get(v)
 					: new HashSet<Ville>();
 			voisins.put(v, setVoisin);
-			if (v.distance(otherVille) < minDistStatic) {
-				if (!v.equals(otherVille)) {
-					// distance is ok, both villes are neighbors
-					setVoisin.add(otherVille);
-					// LOGGER.finer("add neighbor " + otherVille.getNom() +
-					// " to "
-					// + v.getNom() + " distance "
-					// + v.distance(otherVille));
+			if (distanceWithDiff(v, otherVille, latDist)) {
+				if (v.distance(otherVille) < minDistStatic) {
+					if (!v.equals(otherVille)) {
+						// distance is ok, both villes are neighbors
+						setVoisin.add(otherVille);
+					}
+				}
+			} else {
+				if (list.indexOf(otherVille) > list.indexOf(v)) {
+					break;
 				}
 			}
-			// else {
-			// if (list.indexOf(otherVille) > list.indexOf(v)) {
-			// // break only if
-			// break;
-			// }
-			// }
 		}
 	}
 
@@ -184,13 +177,7 @@ public class Test {
 
 		while (!openSet.isEmpty()) {
 			Ville nearestVille = findNearestVille();
-			if (LOGGER.getLevel() == Level.FINE) {
-				LOGGER.fine("size close set " + closedSet.size());
-				LOGGER.fine("size open set " + openSet.size());
-			}
-			logDistances();
 			if (nearestVille.equals(finish)) {
-
 				return distances.get(finish);
 			}
 		}
@@ -210,11 +197,8 @@ public class Test {
 
 		// init sets
 		closedSet = new HashSet<>();
-		closedSet.add(orig);
-		// use a copy of voisin
-		openSet = new HashSet<>(voisins.get(orig));
-		LOGGER.fine("add " + voisins.get(orig).size() + " villes neighbor of "
-				+ orig.getNom());
+		openSet = new HashSet<>();
+		addVilleToClosedSet(orig);
 	}
 
 	private static void updateDistances(Ville s1, Ville s2) {
@@ -226,35 +210,28 @@ public class Test {
 	}
 
 	private static Ville findNearestVille() {
-		double min = Double.MAX_VALUE;
 		Ville nextVille = null;
-		Ville originVille = null;
-		for (Ville ville1 : closedSet) {
-			for (Ville ville2 : openSet) {
-				if (voisins.get(ville1).contains(ville2)) {
-					double dist = distances.get(ville1)
-							+ ville1.distance(ville2);
-					if (dist < min) {
-						min = dist;
-						originVille = ville1;
-						nextVille = ville2;
-					}
-				}
-			}
-		}
-		LOGGER.fine(String.format(
-				"min distance: %.0f. origin: %s. destination: %s", min,
-				originVille.getNom(), nextVille.getNom()));
-		updateDistances(originVille, nextVille);
+		nextVille = findMinDistanceVille();
 		addVilleToClosedSet(nextVille);
 		return nextVille;
 	}
 
+	private static Ville findMinDistanceVille() {
+		double min = Double.MAX_VALUE;
+		Ville minVille = null;
+		for (Ville ville : openSet) {
+			if (distances.get(ville) < min) {
+				minVille = ville;
+				min = distances.get(ville);
+			}
+		}
+		return minVille;
+	}
+
 	private static void addVilleToClosedSet(Ville ville) {
 		closedSet.add(ville);
-		if (LOGGER.getLevel() == Level.FINE)
-			LOGGER.fine("add " + ville.getNom()
-					+ " to close set, remove it from open set");
+		LOGGER.fine("add " + ville.getNom()
+				+ " to close set, remove it from open set");
 		openSet.remove(ville);
 
 		HashSet<Ville> voisinsList = voisins.get(ville);
@@ -262,11 +239,7 @@ public class Test {
 			if (!closedSet.contains(nextVille)) {
 				openSet.add(nextVille);
 				LOGGER.fine("add " + nextVille.getNom() + " to open set");
-			}
-		}
-		for (Ville villeVoisine : openSet) {
-			if (villeVoisine.distance(ville) <= minDistStatic) {
-				updateDistances(ville, villeVoisine);
+				updateDistances(ville, nextVille);
 			}
 		}
 	}
@@ -286,18 +259,17 @@ public class Test {
 	public static void test0() {
 		initFrance(2000);
 		printVilleWithSameName();
-		
+
 	}
 
 	static void logDistances() {
-		if (LOGGER.getLevel() == Level.FINE)
-			for (Entry<Ville, Double> entry : distances.entrySet()) {
-				if (entry.getValue() != Double.MAX_VALUE) {
-					String message = String.format("distance %s %.0f", entry
-							.getKey().getNom(), entry.getValue());
-					LOGGER.fine(message);
-				}
+		for (Entry<Ville, Double> entry : distances.entrySet()) {
+			if (entry.getValue() != Double.MAX_VALUE) {
+				String message = String.format("distance %s %.0f", entry
+						.getKey().getNom(), entry.getValue());
+				LOGGER.fine(message);
 			}
+		}
 	}
 
 	public static void test1(double minDist) {
@@ -343,24 +315,48 @@ public class Test {
 		Ville brest = premiereVille("Brest");
 		Ville hendaye = premiereVille("Hendaye");
 
+		Timer.start();
 		afficheDijkstra(paris, rouen);
+		Timer.end();
+		Timer.log("temps dijkstra paris, rouen", LOGGER);
+		Timer.start();
 		afficheDijkstra(palaiseau, rouen);
+		Timer.end();
+		Timer.log("temps dijkstra palaiseau, rouen", LOGGER);
+		Timer.start();
 		afficheDijkstra(palaiseau, paris);
+		Timer.end();
+		Timer.log("temps dijkstra palaiseau, paris", LOGGER);
+		Timer.start();
 		afficheDijkstra(paris, perpignan);
+		Timer.end();
+		Timer.log("temps dijkstra paris, perpignan", LOGGER);
+		Timer.start();
 		afficheDijkstra(hendaye, perpignan);
+		Timer.end();
+		Timer.log("temps dijkstra hendaye, perpignan", LOGGER);
+		Timer.start();
 		afficheDijkstra(paris, strasbourg);
+		Timer.end();
+		Timer.log("temps dijkstra paris, strasbourg", LOGGER);
+		Timer.start();
 		afficheDijkstra(hagenau, strasbourg);
+		Timer.end();
+		Timer.log("temps dijkstra hagenau, strasbourg", LOGGER);
+		Timer.start();
 		afficheDijkstra(hagenau, brest);
+		Timer.end();
+		Timer.log("temps dijkstra hagenau, brest", LOGGER);
 
 	}
 
 	public static void stupidTest(Collection<Ville> set) {
-		List<Ville> list= new ArrayList<>(set); 
+		List<Ville> list = new ArrayList<>(set);
 		Collections.sort(list);
 		Timer.start();
 		long count = 0;
 		int size = list.size();
-		for (int i = 0; i< list.size(); i++) {
+		for (int i = 0; i < list.size(); i++) {
 			Ville v = list.get(i);
 
 			double R = 6371000;
@@ -400,10 +396,10 @@ public class Test {
 		// test1(4000);
 		//
 		// tests sur la carte de France
-		//test2(2000);
-		 test2(5000);
+		// test2(2000);
+		// test2(5000);
 		// test2(7000);
-		// test2(10000);
+		test2(10000);
 
 	}
 
@@ -443,8 +439,10 @@ class Timer {
 	}
 
 	public static void log(String prefixMessage, Logger logger) {
-		logger.log(Level.INFO, prefixMessage + " Time taken: " + (end - start)
-				+ "ms");
+		int totalseconds = (int) (end - start) / 1000;
+		int mins = (int) totalseconds / 60;
+		logger.log(Level.INFO, String.format("%s Time taken: %dm%ds",
+				prefixMessage, mins, totalseconds - mins * 60));
 	}
 
 }
